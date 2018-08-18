@@ -50,14 +50,15 @@ public class ModifiedSystemClassRuntimeTest extends RuntimeTestBase {
 	}
 
 	@Test
-	public void should_instrument_java10_class() {
-		final byte[] bytes = createClass(BytecodeVersion.V10);
+	public void should_instrument_class_greater_than_max_version() {
+		int futureVersion = BytecodeVersion.MAX_VERSION + 1;
+		final byte[] bytes = createClass(futureVersion);
 
 		byte[] instrumented = ModifiedSystemClassRuntime.instrument(bytes,
 				"accessField");
+		assertEquals(futureVersion, BytecodeVersion.get(instrumented));
 
-		assertEquals(BytecodeVersion.V10, BytecodeVersion.get(instrumented));
-		instrumented = BytecodeVersion.downgradeIfNeeded(BytecodeVersion.V10,
+		instrumented = BytecodeVersion.downgradeIfNeeded(futureVersion,
 				instrumented);
 		final ClassNode classNode = new ClassNode();
 		new ClassReader(instrumented).accept(classNode, 0);
@@ -82,8 +83,9 @@ public class ModifiedSystemClassRuntimeTest extends RuntimeTestBase {
 	 * "java.lang.reflect.Module" introduced in JDK 9.
 	 */
 	private Instrumentation newInstrumentationMock() {
-		return (Instrumentation) Proxy.newProxyInstance(getClass()
-				.getClassLoader(), new Class[] { Instrumentation.class },
+		return (Instrumentation) Proxy.newProxyInstance(
+				getClass().getClassLoader(),
+				new Class[] { Instrumentation.class },
 				new MyInvocationHandler());
 	}
 
@@ -100,8 +102,8 @@ public class ModifiedSystemClassRuntimeTest extends RuntimeTestBase {
 			added = true;
 			try {
 				// Our class should get instrumented:
-				final byte[] data = TargetLoader
-						.getClassDataAsBytes(ModifiedSystemClassRuntimeTest.class);
+				final byte[] data = TargetLoader.getClassDataAsBytes(
+						ModifiedSystemClassRuntimeTest.class);
 				verifyInstrumentedClass(TARGET_CLASS_NAME,
 						transformer.transform((ClassLoader) null,
 								TARGET_CLASS_NAME, null, null, data));

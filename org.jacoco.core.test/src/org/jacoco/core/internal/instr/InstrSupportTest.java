@@ -15,7 +15,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import org.jacoco.core.internal.BytecodeVersion;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -57,7 +56,7 @@ public class InstrSupportTest {
 		assertTrue(InstrSupport.needsFrames(Opcodes.V1_7));
 		assertTrue(InstrSupport.needsFrames(Opcodes.V1_8));
 		assertTrue(InstrSupport.needsFrames(Opcodes.V9));
-		assertTrue(InstrSupport.needsFrames(BytecodeVersion.V10));
+		assertTrue(InstrSupport.needsFrames(Opcodes.V10));
 		assertTrue(InstrSupport.needsFrames(Opcodes.V11));
 		assertTrue(InstrSupport.needsFrames(Opcodes.V12));
 	}

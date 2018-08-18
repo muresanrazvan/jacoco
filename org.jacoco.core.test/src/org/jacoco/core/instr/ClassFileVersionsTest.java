@@ -100,7 +100,7 @@ public class ClassFileVersionsTest {
 
 	@Test
 	public void test_10() throws IOException {
-		testVersion(BytecodeVersion.V10, true);
+		testVersion(Opcodes.V10, true);
 	}
 
 	@Test

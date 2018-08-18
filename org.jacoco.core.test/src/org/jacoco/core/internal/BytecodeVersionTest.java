@@ -11,13 +11,13 @@
  *******************************************************************************/
 package org.jacoco.core.internal;
 
-import org.junit.Test;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.Opcodes;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertSame;
+
+import org.junit.Test;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Opcodes;
 
 public class BytecodeVersionTest {
 
@@ -31,25 +31,37 @@ public class BytecodeVersionTest {
 	}
 
 	@Test
-	public void should_return_original_when_not_java10() {
-		final byte[] originalBytes = createClass(Opcodes.V9);
+	public void should_return_original_when_less_than_MAX_VERSION() {
+		int lowerVersion = BytecodeVersion.MAX_VERSION - 1;
+		final byte[] originalBytes = createClass(lowerVersion);
 
-		final byte[] bytes = BytecodeVersion.downgradeIfNeeded(Opcodes.V9,
+		final byte[] bytes = BytecodeVersion.downgradeIfNeeded(lowerVersion,
 				originalBytes);
 
 		assertSame(originalBytes, bytes);
 	}
 
 	@Test
-	public void should_return_copy_when_java10() {
-		final byte[] originalBytes = createClass(BytecodeVersion.V10);
+	public void should_return_original_when_equals_MAX_VERSION() {
+		final byte[] originalBytes = createClass(BytecodeVersion.MAX_VERSION);
 
 		final byte[] bytes = BytecodeVersion
-				.downgradeIfNeeded(BytecodeVersion.V10, originalBytes);
+				.downgradeIfNeeded(BytecodeVersion.MAX_VERSION, originalBytes);
+
+		assertSame(originalBytes, bytes);
+	}
+
+	@Test
+	public void should_return_copy_when_greater_than_MAX_VERSION() {
+		int higerVersion = BytecodeVersion.MAX_VERSION + 1;
+		final byte[] originalBytes = createClass(higerVersion);
+
+		final byte[] bytes = BytecodeVersion.downgradeIfNeeded(higerVersion,
+				originalBytes);
 
 		assertNotSame(originalBytes, bytes);
-		assertEquals(Opcodes.V9, BytecodeVersion.get(bytes));
-		assertEquals(BytecodeVersion.V10, BytecodeVersion.get(originalBytes));
+		assertEquals(BytecodeVersion.MAX_VERSION, BytecodeVersion.get(bytes));
+		assertEquals(higerVersion, BytecodeVersion.get(originalBytes));
 	}
 
 	private static byte[] createClass(final int version) {

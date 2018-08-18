@@ -21,8 +21,8 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Collections;
@@ -33,6 +33,7 @@ import java.util.jar.JarInputStream;
 import java.util.jar.Pack200;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 import org.jacoco.core.data.ExecutionDataStore;
@@ -90,8 +91,10 @@ public class AnalyzerTest {
 	}
 
 	@Test
-	public void should_analyze_java10_class() throws Exception {
-		final byte[] bytes = createClass(BytecodeVersion.V10);
+	public void should_analyze_class_greater_than_max_version()
+			throws Exception {
+		int futureVersion = BytecodeVersion.MAX_VERSION + 1;
+		final byte[] bytes = createClass(futureVersion);
 		final long expectedClassId = CRC64.classId(bytes);
 
 		analyzer.analyzeClass(bytes, "");
@@ -164,8 +167,7 @@ public class AnalyzerTest {
 	}
 
 	/**
-	 * Triggers exception in
-	 * {@link Analyzer#analyzeClass(InputStream, String)}.
+	 * Triggers exception in {@link Analyzer#analyzeClass(InputStream, String)}.
 	 */
 	@Test
 	public void testAnalyzeClass_BrokenStream() throws IOException {
@@ -189,8 +191,8 @@ public class AnalyzerTest {
 	public void testAnalyzeAll_Zip() throws IOException {
 		final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 		final ZipOutputStream zip = new ZipOutputStream(buffer);
-		zip.putNextEntry(new ZipEntry(
-				"org/jacoco/core/analysis/AnalyzerTest.class"));
+		zip.putNextEntry(
+				new ZipEntry("org/jacoco/core/analysis/AnalyzerTest.class"));
 		zip.write(TargetLoader.getClassDataAsBytes(AnalyzerTest.class));
 		zip.finish();
 		final int count = analyzer.analyzeAll(
@@ -243,20 +245,21 @@ public class AnalyzerTest {
 	public void testAnalyzeAll_Pack200() throws IOException {
 		final ByteArrayOutputStream zipbuffer = new ByteArrayOutputStream();
 		final ZipOutputStream zip = new ZipOutputStream(zipbuffer);
-		zip.putNextEntry(new ZipEntry(
-				"org/jacoco/core/analysis/AnalyzerTest.class"));
+		zip.putNextEntry(
+				new ZipEntry("org/jacoco/core/analysis/AnalyzerTest.class"));
 		zip.write(TargetLoader.getClassDataAsBytes(AnalyzerTest.class));
 		zip.finish();
 
 		final ByteArrayOutputStream pack200buffer = new ByteArrayOutputStream();
 		GZIPOutputStream gzipOutput = new GZIPOutputStream(pack200buffer);
-		Pack200.newPacker().pack(
-				new JarInputStream(new ByteArrayInputStream(
-						zipbuffer.toByteArray())), gzipOutput);
+		Pack200.newPacker()
+				.pack(new JarInputStream(
+						new ByteArrayInputStream(zipbuffer.toByteArray())),
+						gzipOutput);
 		gzipOutput.finish();
 
-		final int count = analyzer.analyzeAll(new ByteArrayInputStream(
-				pack200buffer.toByteArray()), "Test");
+		final int count = analyzer.analyzeAll(
+				new ByteArrayInputStream(pack200buffer.toByteArray()), "Test");
 		assertEquals(1, count);
 		assertClasses("org/jacoco/core/analysis/AnalyzerTest");
 	}
@@ -280,8 +283,8 @@ public class AnalyzerTest {
 
 	@Test
 	public void testAnalyzeAll_Empty() throws IOException {
-		final int count = analyzer.analyzeAll(new ByteArrayInputStream(
-				new byte[0]), "Test");
+		final int count = analyzer
+				.analyzeAll(new ByteArrayInputStream(new byte[0]), "Test");
 		assertEquals(0, count);
 		assertEquals(Collections.emptyMap(), classes);
 	}
@@ -327,12 +330,12 @@ public class AnalyzerTest {
 
 	/**
 	 * With JDK 5 triggers exception in
-	 * {@link Analyzer#nextEntry(ZipInputStream, String)},
-	 * i.e. message will contain only "broken.zip".
+	 * {@link Analyzer#nextEntry(ZipInputStream, String)}, i.e. message will
+	 * contain only "broken.zip".
 	 *
 	 * With JDK > 5 triggers exception in
-	 * {@link Analyzer#analyzeAll(java.io.InputStream, String)},
-	 * i.e. message will contain only "broken.zip@brokenentry.txt".
+	 * {@link Analyzer#analyzeAll(java.io.InputStream, String)}, i.e. message
+	 * will contain only "broken.zip@brokenentry.txt".
 	 */
 	@Test
 	public void testAnalyzeAll_BrokenZipEntry() throws IOException {
@@ -359,8 +362,8 @@ public class AnalyzerTest {
 	public void testAnalyzeAll_BrokenClassFileInZip() throws IOException {
 		final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 		final ZipOutputStream zip = new ZipOutputStream(buffer);
-		zip.putNextEntry(new ZipEntry(
-				"org/jacoco/core/analysis/AnalyzerTest.class"));
+		zip.putNextEntry(
+				new ZipEntry("org/jacoco/core/analysis/AnalyzerTest.class"));
 		final byte[] brokenclass = TargetLoader
 				.getClassDataAsBytes(AnalyzerTest.class);
 		brokenclass[10] = 0x23;

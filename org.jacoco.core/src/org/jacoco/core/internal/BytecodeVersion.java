@@ -23,9 +23,9 @@ public final class BytecodeVersion {
 	private static final int VERSION_INDEX = 6;
 
 	/**
-	 * Version of the Java 10 class file format.
+	 * Maximum version currently supported by ASM.
 	 */
-	public static final int V10 = Opcodes.V9 + 1;
+	public static final int MAX_VERSION = Opcodes.V12;
 
 	private BytecodeVersion() {
 	}
@@ -56,25 +56,25 @@ public final class BytecodeVersion {
 	}
 
 	/**
-	 * Returns given bytes of class if its major bytecode version is less that
-	 * {@link #V10}, otherwise returns copy where major version set to
-	 * {@link Opcodes#V9}.
+	 * Returns given bytes of class if its major bytecode version
+	 * {@link #MAX_VERSION} or less, otherwise returns copy where major version
+	 * set to {@link #MAX_VERSION}.
 	 * 
 	 * @param version
 	 *            version of bytecode
 	 * @param source
 	 *            bytes of class
-	 * @return given bytes of class if version is less than {@link #V10},
-	 *         otherwise copy where version set to {@link Opcodes#V9}
+	 * @return class definition with a version of at most {@link #MAX_VERSION}
 	 */
 	public static byte[] downgradeIfNeeded(final int version,
 			final byte[] source) {
-		if (V10 != version) {
+		// consider major version only (due to 1.1 anomaly)
+		if ((version & 0xff) <= MAX_VERSION) {
 			return source;
 		}
 		final byte[] b = new byte[source.length];
 		System.arraycopy(source, 0, b, 0, source.length);
-		set(b, Opcodes.V9);
+		set(b, MAX_VERSION);
 		return b;
 	}
 
