@@ -12,12 +12,9 @@
 package org.jacoco.core.internal.flow;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertSame;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.tree.InsnNode;
 
 /**
  * Unit tests for {@link Instruction}.
@@ -28,14 +25,12 @@ public class InstructionTest {
 
 	@Before
 	public void setup() {
-		instruction = new Instruction(new InsnNode(Opcodes.NOP), 123);
+		instruction = new Instruction(123);
 	}
 
 	@Test
 	public void testInit() {
-		final InsnNode node = new InsnNode(Opcodes.NOP);
-		instruction = new Instruction(node, 123);
-		assertSame(node, instruction.getNode());
+		instruction = new Instruction(123);
 		assertEquals(123, instruction.getLine());
 		assertEquals(0, instruction.getBranches());
 		assertEquals(0, instruction.getCoveredBranches());
@@ -54,20 +49,19 @@ public class InstructionTest {
 
 	@Test
 	public void testSetPredecessor() {
-		final Instruction predecessor = new Instruction(
-				new InsnNode(Opcodes.NOP), 122);
+		final Instruction predecessor = new Instruction(122);
 		instruction.setPredecessor(predecessor, 0);
 		assertEquals(1, predecessor.getBranches());
 	}
 
 	@Test
 	public void setCovered_should_mark_branch_in_predecessor() {
-		final Instruction i = new Instruction(new InsnNode(Opcodes.NOP), 122);
+		final Instruction i = new Instruction(122);
 		i.setCovered(2);
 		assertEquals(1, i.getCoveredBranches());
 		assertEquals("{2}", i.toString());
 
-		final Instruction s1 = new Instruction(new InsnNode(Opcodes.NOP), 123);
+		final Instruction s1 = new Instruction(123);
 		s1.setPredecessor(i, 1);
 		s1.setCovered(0);
 		assertEquals("{0}", s1.toString());
@@ -75,7 +69,7 @@ public class InstructionTest {
 		assertEquals("{1, 2}", i.toString());
 		assertEquals(2, i.getCoveredBranches());
 
-		final Instruction s2 = new Instruction(new InsnNode(Opcodes.NOP), 124);
+		final Instruction s2 = new Instruction(124);
 		s2.setPredecessor(i, 0);
 		s2.setCovered(1);
 		assertEquals("{0}", s1.toString());
@@ -94,9 +88,9 @@ public class InstructionTest {
 
 	@Test
 	public void merge_should_add_covered_branches_from_another_instruction() {
-		final Instruction i1 = new Instruction(new InsnNode(Opcodes.NOP), 123);
+		final Instruction i1 = new Instruction(123);
 		i1.setCovered(0);
-		final Instruction i2 = new Instruction(new InsnNode(Opcodes.NOP), 123);
+		final Instruction i2 = new Instruction(123);
 		i2.setCovered(1);
 		i1.merge(i2);
 		assertEquals("{0, 1}", i1.toString());
@@ -106,11 +100,10 @@ public class InstructionTest {
 
 	@Test
 	public void testSetCoveredOnLongSequence() {
-		final Instruction first = new Instruction(new InsnNode(Opcodes.NOP), 0);
+		final Instruction first = new Instruction(0);
 		Instruction next = first;
 		for (int i = 0; i < 0x10000; i++) {
-			final Instruction insn = new Instruction(new InsnNode(Opcodes.NOP),
-					i);
+			final Instruction insn = new Instruction(i);
 			insn.setPredecessor(next, 0);
 			next = insn;
 		}

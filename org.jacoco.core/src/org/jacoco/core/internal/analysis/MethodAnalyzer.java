@@ -13,17 +13,13 @@ package org.jacoco.core.internal.analysis;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-import org.jacoco.core.analysis.ICounter;
 import org.jacoco.core.analysis.IMethodCoverage;
 import org.jacoco.core.analysis.ISourceNode;
 import org.jacoco.core.internal.analysis.filter.IFilter;
 import org.jacoco.core.internal.analysis.filter.IFilterContext;
-import org.jacoco.core.internal.analysis.filter.IFilterOutput;
 import org.jacoco.core.internal.flow.IFrame;
 import org.jacoco.core.internal.flow.Instruction;
 import org.jacoco.core.internal.flow.LabelInfo;
@@ -39,16 +35,15 @@ import org.objectweb.asm.tree.TryCatchBlockNode;
  * A {@link MethodProbesVisitor} that analyzes which statements and branches of
  * a method have been executed based on given probe data.
  */
-public class MethodAnalyzer extends MethodProbesVisitor
-		implements IFilterOutput {
+public class MethodAnalyzer extends MethodProbesVisitor {
+
+	private final MethodCoverageCalculator calculator;
 
 	private final boolean[] probes;
 
 	private final IFilter filter;
 
 	private final IFilterContext filterContext;
-
-	private final MethodCoverageImpl coverage;
 
 	private int currentLine = ISourceNode.UNKNOWN_LINE;
 
@@ -58,9 +53,6 @@ public class MethodAnalyzer extends MethodProbesVisitor
 
 	// Due to ASM issue #315745 there can be more than one label per instruction
 	private final List<Label> currentLabel = new ArrayList<Label>(2);
-
-	/** List of all analyzed instructions */
-	private final List<Instruction> instructions = new ArrayList<Instruction>();
 
 	/** List of all predecessors of covered probes */
 	private final List<CoveredProbe> coveredProbes = new ArrayList<CoveredProbe>();
@@ -95,7 +87,7 @@ public class MethodAnalyzer extends MethodProbesVisitor
 		this.probes = probes;
 		this.filter = filter;
 		this.filterContext = filterContext;
-		this.coverage = new MethodCoverageImpl(name, desc, signature);
+		this.calculator = new MethodCoverageCalculator(name, desc, signature);
 	}
 
 	/**
@@ -105,7 +97,7 @@ public class MethodAnalyzer extends MethodProbesVisitor
 	 * @return coverage data for this method
 	 */
 	public IMethodCoverage getCoverage() {
-		return coverage;
+		return calculator.getCoverage();
 	}
 
 	/**
@@ -114,7 +106,7 @@ public class MethodAnalyzer extends MethodProbesVisitor
 	@Override
 	public void accept(final MethodNode methodNode,
 			final MethodVisitor methodVisitor) {
-		filter.filter(methodNode, filterContext, this);
+		filter.filter(methodNode, filterContext, calculator);
 
 		methodVisitor.visitCode();
 		for (final TryCatchBlockNode n : methodNode.tryCatchBlocks) {
@@ -128,57 +120,9 @@ public class MethodAnalyzer extends MethodProbesVisitor
 		methodVisitor.visitEnd();
 	}
 
-	private final Set<AbstractInsnNode> ignored = new HashSet<AbstractInsnNode>();
-
-	/**
-	 * Instructions that should be merged form disjoint sets. Coverage
-	 * information from instructions of one set will be merged into
-	 * representative instruction of set.
-	 * 
-	 * Each such set is represented as a singly linked list: each element except
-	 * one references another element from the same set, element without
-	 * reference - is a representative of this set.
-	 * 
-	 * This map stores reference (value) for elements of sets (key).
-	 */
-	private final Map<AbstractInsnNode, AbstractInsnNode> merged = new HashMap<AbstractInsnNode, AbstractInsnNode>();
-
-	private final Map<AbstractInsnNode, Instruction> nodeToInstruction = new HashMap<AbstractInsnNode, Instruction>();
+	private final Map<AbstractInsnNode, Instruction> instructions = new HashMap<AbstractInsnNode, Instruction>();
 
 	private AbstractInsnNode currentNode;
-
-	public void ignore(final AbstractInsnNode fromInclusive,
-			final AbstractInsnNode toInclusive) {
-		for (AbstractInsnNode i = fromInclusive; i != toInclusive; i = i
-				.getNext()) {
-			ignored.add(i);
-		}
-		ignored.add(toInclusive);
-	}
-
-	private AbstractInsnNode findRepresentative(AbstractInsnNode i) {
-		AbstractInsnNode r = merged.get(i);
-		while (r != null) {
-			i = r;
-			r = merged.get(i);
-		}
-		return i;
-	}
-
-	public void merge(AbstractInsnNode i1, AbstractInsnNode i2) {
-		i1 = findRepresentative(i1);
-		i2 = findRepresentative(i2);
-		if (i1 != i2) {
-			merged.put(i2, i1);
-		}
-	}
-
-	private final Map<AbstractInsnNode, Set<AbstractInsnNode>> replacements = new HashMap<AbstractInsnNode, Set<AbstractInsnNode>>();
-
-	public void replaceBranches(final AbstractInsnNode source,
-			final Set<AbstractInsnNode> newTargets) {
-		replacements.put(source, newTargets);
-	}
 
 	@Override
 	public void visitLabel(final Label label) {
@@ -200,9 +144,8 @@ public class MethodAnalyzer extends MethodProbesVisitor
 	}
 
 	private void visitInsn() {
-		final Instruction insn = new Instruction(currentNode, currentLine);
-		nodeToInstruction.put(currentNode, insn);
-		instructions.add(insn);
+		final Instruction insn = new Instruction(currentLine);
+		instructions.put(currentNode, insn);
 		if (lastInsn != null) {
 			insn.setPredecessor(lastInsn, 0);
 		}
@@ -370,48 +313,8 @@ public class MethodAnalyzer extends MethodProbesVisitor
 			p.instruction.setCovered(p.branch);
 		}
 
-		// Merge:
-		for (final Instruction i : instructions) {
-			final AbstractInsnNode m = i.getNode();
-			final AbstractInsnNode r = findRepresentative(m);
-			if (r != m) {
-				ignored.add(m);
-				nodeToInstruction.get(r).merge(i);
-			}
-		}
+		calculator.calculateCoverage(instructions, firstLine, lastLine);
 
-		// Report result:
-		coverage.ensureCapacity(firstLine, lastLine);
-		for (final Instruction i : instructions) {
-			if (ignored.contains(i.getNode())) {
-				continue;
-			}
-
-			final int total;
-			final int covered;
-			final Set<AbstractInsnNode> r = replacements.get(i.getNode());
-			if (r != null) {
-				int cb = 0;
-				for (AbstractInsnNode b : r) {
-					if (nodeToInstruction.get(b).getCoveredBranches() > 0) {
-						cb++;
-					}
-				}
-				total = r.size();
-				covered = cb;
-			} else {
-				total = i.getBranches();
-				covered = i.getCoveredBranches();
-			}
-
-			final ICounter instrCounter = covered == 0 ? CounterImpl.COUNTER_1_0
-					: CounterImpl.COUNTER_0_1;
-			final ICounter branchCounter = total > 1
-					? CounterImpl.getInstance(total - covered, covered)
-					: CounterImpl.COUNTER_0_0;
-			coverage.increment(instrCounter, branchCounter, i.getLine());
-		}
-		coverage.incrementMethodCounter();
 	}
 
 	private void addProbe(final int probeId, final int branch) {
