@@ -17,7 +17,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.jacoco.core.analysis.ICounter;
-import org.jacoco.core.analysis.IMethodCoverage;
 import org.jacoco.core.internal.analysis.filter.IFilterOutput;
 import org.jacoco.core.internal.flow.Instruction;
 import org.objectweb.asm.tree.AbstractInsnNode;
@@ -27,7 +26,7 @@ import org.objectweb.asm.tree.AbstractInsnNode;
  */
 class MethodCoverageCalculator implements IFilterOutput {
 
-	private final MethodCoverageImpl coverage;
+	private final Map<AbstractInsnNode, Instruction> instructions;
 
 	private final Set<AbstractInsnNode> ignored;
 
@@ -46,17 +45,15 @@ class MethodCoverageCalculator implements IFilterOutput {
 
 	private final Map<AbstractInsnNode, Set<AbstractInsnNode>> replacements;
 
-	MethodCoverageCalculator(final String name, final String desc,
-			final String signature) {
-		this.coverage = new MethodCoverageImpl(name, desc, signature);
+	MethodCoverageCalculator(
+			final Map<AbstractInsnNode, Instruction> instructions) {
+		this.instructions = instructions;
 		this.ignored = new HashSet<AbstractInsnNode>();
 		this.merged = new HashMap<AbstractInsnNode, AbstractInsnNode>();
 		this.replacements = new HashMap<AbstractInsnNode, Set<AbstractInsnNode>>();
 	}
 
-	void calculateCoverage(
-			final Map<AbstractInsnNode, Instruction> instructions,
-			final int firstLine, final int lastLine) {
+	void calculateCoverage(final MethodCoverageImpl coverage) {
 
 		// Merge:
 		for (final Map.Entry<AbstractInsnNode, Instruction> i : instructions
@@ -70,7 +67,6 @@ class MethodCoverageCalculator implements IFilterOutput {
 		}
 
 		// Report result:
-		coverage.ensureCapacity(firstLine, lastLine);
 		for (final Map.Entry<AbstractInsnNode, Instruction> i : instructions
 				.entrySet()) {
 			if (ignored.contains(i.getKey())) {
@@ -104,10 +100,6 @@ class MethodCoverageCalculator implements IFilterOutput {
 			coverage.increment(instrCounter, branchCounter, insn.getLine());
 		}
 		coverage.incrementMethodCounter();
-	}
-
-	IMethodCoverage getCoverage() {
-		return coverage;
 	}
 
 	private AbstractInsnNode findRepresentative(AbstractInsnNode i) {

@@ -48,10 +48,20 @@ public class InstructionTest {
 	}
 
 	@Test
-	public void testSetPredecessor() {
+	public void setPredecessor_should_increment_branches() {
 		final Instruction predecessor = new Instruction(122);
 		instruction.setPredecessor(predecessor, 0);
 		assertEquals(1, predecessor.getBranches());
+		assertEquals(0, predecessor.getCoveredBranches());
+	}
+
+	@Test
+	public void setPredecessor_should_propagate_coverage_status_to_predecessor() {
+		final Instruction predecessor = new Instruction(122);
+		instruction.setCovered(0);
+		instruction.setPredecessor(predecessor, 0);
+		assertEquals(1, predecessor.getBranches());
+		assertEquals(1, predecessor.getCoveredBranches());
 	}
 
 	@Test

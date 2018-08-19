@@ -65,6 +65,9 @@ public class Instruction {
 		this.predecessor = predecessor;
 		predecessor.addBranch();
 		this.predecessorBranch = branch;
+		if (!coveredBranches.isEmpty()) {
+			predecessor.setCovered(branch);
+		}
 	}
 
 	/**
