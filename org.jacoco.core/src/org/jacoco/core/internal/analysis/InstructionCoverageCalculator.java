@@ -75,17 +75,14 @@ class InstructionCoverageCalculator {
 	}
 
 	void addProbe(final Instruction insn, final int probeId, final int branch) {
-		insn.addBranch();
-		if (probes != null && probes[probeId]) {
-			insn.setCovered(branch);
-		}
+		final boolean executed = probes != null && probes[probeId];
+		insn.addBranch(executed, branch);
 	}
 
 	Map<AbstractInsnNode, Instruction> calculateInstructionStatus() {
 		// Wire jumps:
 		for (final Jump j : jumps) {
-			LabelInfo.getInstruction(j.target).setPredecessor(j.source,
-					j.branch);
+			j.source.addBranch(LabelInfo.getInstruction(j.target), j.branch);
 		}
 
 		return instructions;

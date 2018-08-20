@@ -101,7 +101,7 @@ public class MethodAnalyzer extends MethodProbesVisitor {
 	private void visitInsn() {
 		final Instruction insn = calc.addInstruction(currentNode, currentLine);
 		if (currentInsn != null) {
-			insn.setPredecessor(currentInsn, 0);
+			currentInsn.addBranch(insn, 0);
 		}
 		final int labelCount = currentLabel.size();
 		if (labelCount > 0) {

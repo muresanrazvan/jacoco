@@ -14,8 +14,14 @@ package org.jacoco.core.internal.flow;
 import java.util.BitSet;
 
 /**
- * Representation of a byte code instruction for analysis. Internally used for
- * analysis.
+ * Execution status of a single byte code instruction internally used for
+ * coverage analysis. The execution status is recorded separately for each
+ * outgoing branch. Each instructions has at least one branch, for example in
+ * case of a simple sequence of instructions (by convention branch 0).
+ * 
+ * The executions status can either be directly derived from a probe which has
+ * been inserted in the execution flow. Or indirectly propagated along the
+ * branches (i.e. edges of the CFG).
  */
 public class Instruction {
 
@@ -42,53 +48,58 @@ public class Instruction {
 	}
 
 	/**
-	 * Adds an branch to this instruction.
-	 */
-	public void addBranch() {
-		branches++;
-	}
-
-	/**
-	 * Sets the given instruction as a predecessor of this instruction and adds
-	 * branch to the predecessor. Probes are inserted in a way that every
-	 * instruction has at most one direct predecessor.
+	 * Adds a branch to this instruction which execution status is indirectly
+	 * derived from the execution status of the target instruction. In case the
+	 * branch is covered the status is propagated also to the predecessors of
+	 * this instruction.
 	 * 
-	 * @see #addBranch()
-	 * @param predecessor
-	 *            predecessor instruction
+	 * Note: This method is not idempotent and must be called exactly once for
+	 * every branch
+	 * 
+	 * @param target
+	 *            target instruction of this branch
 	 * @param branch
-	 *            branch number in predecessor that should be marked as covered
-	 *            when this instruction marked as covered
+	 *            branch identifier unique for this instruction
 	 */
-	public void setPredecessor(final Instruction predecessor,
-			final int branch) {
-		this.predecessor = predecessor;
-		predecessor.addBranch();
-		this.predecessorBranch = branch;
-		if (!coveredBranches.isEmpty()) {
-			predecessor.setCovered(branch);
+	public void addBranch(final Instruction target, final int branch) {
+		branches++;
+		target.predecessor = this;
+		target.predecessorBranch = branch;
+		if (!target.coveredBranches.isEmpty()) {
+			propagateExecutedBranch(this, branch);
 		}
 	}
 
 	/**
-	 * Marks one branch of this instruction as covered. Also recursively marks
-	 * all predecessor instructions as covered if this is the first covered
-	 * branch.
-	 *
+	 * Adds a branch to this instruction which execution status is directly
+	 * derived from a probe. In case the branch is covered the status is
+	 * propagated also to the predecessors of this instruction.
+	 * 
+	 * Note: This method is not idempotent and must be called exactly once for
+	 * every branch
+	 * 
+	 * @param executed
+	 *            whether the corresponding probe has been executed
 	 * @param branch
-	 *            branch number to mark as covered
+	 *            branch identifier unique for this instruction
 	 */
-	public void setCovered(final int branch) {
-		Instruction i = this;
-		int b = branch;
-		while (i != null) {
-			if (!i.coveredBranches.isEmpty()) {
-				i.coveredBranches.set(b);
+	public void addBranch(final boolean executed, final int branch) {
+		branches++;
+		if (executed) {
+			propagateExecutedBranch(this, branch);
+		}
+	}
+
+	private static void propagateExecutedBranch(Instruction insn, int branch) {
+		// No recursion here, as there can be very long chains of instructions
+		while (insn != null) {
+			if (!insn.coveredBranches.isEmpty()) {
+				insn.coveredBranches.set(branch);
 				break;
 			}
-			i.coveredBranches.set(b);
-			b = i.predecessorBranch;
-			i = i.predecessor;
+			insn.coveredBranches.set(branch);
+			branch = insn.predecessorBranch;
+			insn = insn.predecessor;
 		}
 	}
 
@@ -128,11 +139,6 @@ public class Instruction {
 	 */
 	public void merge(final Instruction instruction) {
 		this.coveredBranches.or(instruction.coveredBranches);
-	}
-
-	@Override
-	public String toString() {
-		return coveredBranches.toString();
 	}
 
 }
